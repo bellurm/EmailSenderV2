@@ -1,10 +1,13 @@
-# cyberworm
-import smtplib, ssl
+import smtplib
+import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 import optparse as opt
+import os
+import getpass
+
 
 class EmailSender():
     def __init__(self):
@@ -14,11 +17,12 @@ class EmailSender():
 
         parse_object = opt.OptionParser(
             f"""{self.RED}
-                MADE BY CYBERWORM
-                Contact: https://blog-cyberworm.com/blog/social-media
-                USAGE 1: python email_sender.py -s <your email address> -p <your e-mail's password> -r <the receiver's e-mail address>
-                USAGE 2: python email_sender.py --sender-email <your email address> --password <your e-mail's password> --receiver-email <the receiver's e-mail address>
-                {self.RESET}
+MADE BY CYBERWORM
+Contact: https://blog-cyberworm.com/blog/social-media
+
+USAGE 1: python email_sender.py -s <your email address> -p <your e-mail's password> -r <receiver's e-mail>
+USAGE 2: python email_sender.py --sender-email <your email address> --password <your e-mail's password> --receiver-email <receiver's e-mail>
+{self.RESET}
             """
         )
         parse_object.add_option("-s", "--sender-email", dest="sender_email")
@@ -30,42 +34,54 @@ class EmailSender():
         self.password = self.value.password
         self.receiver_email = self.value.receiver_email
 
-        print(self.sender_email, self.password, self.receiver_email)
+        if not self.sender_email:
+            self.sender_email = input(f"{self.GREEN}Sender e-mail address: {self.RESET}")
+        if not self.receiver_email:
+            self.receiver_email = input(f"{self.GREEN}Receiver e-mail address: {self.RESET}")
+        if not self.password:
+            self.password = getpass.getpass(f"{self.GREEN}E-mail password (will not be shown): {self.RESET}")
 
     def createMessage(self, subject, text):
         self.message = MIMEMultipart()
         self.message["Subject"] = subject
         self.message["From"] = self.sender_email
         self.message["To"] = self.receiver_email
-        
-        part1 = MIMEText(text, "plain")
+
+        part1 = MIMEText(text, "plain", "utf-8")
         self.message.attach(part1)
-    
+
     def sendMessageWithAttachment(self, filepath):
+        """
+        filepath: path/to/file.ext
+        """
         part2 = MIMEBase('application', "octet-stream")
-        self.filepath = filepath
-        self.filepath = input(f"{self.GREEN}path/to/your/file.ext: {self.RESET}")
+
         try:
-            with open(self.filepath, "rb") as attachment:
+            with open(filepath, "rb") as attachment:
                 part2.set_payload(attachment.read())
             encoders.encode_base64(part2)
-            part2.add_header('Content-Disposition', f'attachment; filename="{filepath.split("/")[-1]}"')
+
+            filename = os.path.basename(filepath)
+            part2.add_header(
+                'Content-Disposition',
+                f'attachment; filename="{filename}"'
+            )
+
             self.message.attach(part2)
         except FileNotFoundError:
-            print(f"{self.RED}Error: The file {self.filepath} was not found.{self.RESET}")
+            print(f"{self.RED}Error: The file '{filepath}' was not found.{self.RESET}")
             exit(1)
         except Exception as e:
             print(f"{self.RED}An error occurred while reading the file: {e}.{self.RESET}")
             exit(1)
 
-    
     def sendEmail(self, smtp_server):
         context = ssl.create_default_context()
         server = None
         try:
-            server = smtplib.SMTP(smtp_server, 587)  # SMTP sunucusu ve portu
+            server = smtplib.SMTP(smtp_server, 587)
             server.starttls(context=context)
-            server.login(self.sender_email, self.password)  # E-posta kimlik doğrulaması
+            server.login(self.sender_email, self.password)
             server.sendmail(self.sender_email, self.receiver_email, self.message.as_string())
             print(f"{self.GREEN}Email sent successfully!{self.RESET}")
         except smtplib.SMTPAuthenticationError:
@@ -77,18 +93,17 @@ class EmailSender():
         finally:
             if server is not None:
                 server.quit()
-            
-            
+
 user = EmailSender()
 
 subject = input(f"{user.GREEN}What is the Subject of your e-mail? > {user.RESET}")
 text = input(f"{user.GREEN}What is your text that will be sent? > {user.RESET}")
 user.createMessage(subject, text)
 
-is_wanted = input(f"{user.GREEN}Do you want to add an attachment? (y/n)> {user.RESET}")
+is_wanted = input(f"{user.GREEN}Do you want to add an attachment? (y/n) > {user.RESET}")
 if is_wanted.lower() == "y":
     filepath = input(f"{user.GREEN}path/to/your/file.ext: {user.RESET}")
     user.sendMessageWithAttachment(filepath)
 
-smtp_server = input(f"{user.GREEN}Enter your SMTP Server: {user.RESET}")
+smtp_server = input(f"{user.GREEN}Enter your SMTP Server (e.g., smtp.gmail.com): {user.RESET}")
 user.sendEmail(smtp_server)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import math
 import argparse
 import getpass
 import mimetypes
@@ -63,7 +64,7 @@ def positive_float(value: str) -> float:
             "Must be a number."
         ) from exc
 
-    if number <= 0:
+    if not math.isfinite(number) or number <= 0:
         raise argparse.ArgumentTypeError(
             "Must be greater than zero."
         )
